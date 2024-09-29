@@ -7,3 +7,5 @@ The primary goal of this project is to give my assistant a distinct personality.
 
 ## keep memory
 Once the personality is validated, I will focus on developing my assistant's memory. The goal is for her to remember specific topics from conversations that took place weeks earlier.
+
+## Software POC Deploy
