@@ -1,0 +1,355 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="{% static 'frontend/img/Hilow.png' %}">
+    <title>Happy Kids | Lulu</title>
+    <link rel="stylesheet" href="{% static 'frontend/css/lulu_styles.css' %}">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto&display=swap">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        {% include 'sidebar.html' %}
+        <main class="content">
+            {% include 'header.html' %}
+
+            <div id="chat-container" class="chat-container" style="display: flex">
+
+                <div class="chat-history" id="chat-history"></div>
+
+                <div class="quick-suggestions" id="quick-suggestions">
+
+                    <div class="highlighted-suggestions">
+                        <span id="suggestion_highligh_3" class="suggestion">Me ensine a ler</span>
+                        <span id="suggestion_highligh_4" class="suggestion">Me ensine a escrever</span>
+                    </div>
+
+                </div>
+
+                <div class="input-container">
+                    <div id="stt-loading" style="display:none; margin-top:5px; color: #888; font-size: 14px;">
+                        <i class="fa-solid fa-spinner fa-spin"></i> Transcribing your speech, please wait...
+                    </div>
+                    <form id="ai-form" method="POST" onsubmit="hideSuggestions()">
+                        <textarea id="question" name="question" placeholder="Type your message..." rows="1" required></textarea>
+                        <button id="mic-button" type="button" class="circle-btn" style="margin-right:10px;">
+                            <i class="fa-solid fa-microphone"></i>
+                        </button>
+                        <button id="send-button" type="submit" class="circle-btn">
+                            <i class="fa-solid fa-arrow-right"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- JS de sugestões rápidas -->
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const form = document.getElementById("ai-form");
+            const input = document.getElementById("question");
+            const suggestions = document.querySelectorAll(".suggestion");
+            const textarea = document.getElementById("question");
+
+            textarea.addEventListener("input", () => {
+                textarea.style.height = "auto";
+                textarea.style.height = (textarea.scrollHeight) + "px";
+            });
+
+            textarea.addEventListener("keydown", function (event) {
+                if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    document.getElementById("ai-form").dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+                }
+            });
+
+            input.addEventListener("keydown", function (event) {
+                if (event.key === "Enter") {
+                    event.preventDefault();
+                    form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+                }
+            });
+
+            suggestions.forEach(suggestion => {
+                suggestion.addEventListener("click", function () {
+                    input.value = this.innerText;
+                    form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+                });
+            });
+        });
+
+        function hideSuggestions() {
+            fetch("/api/generate-suggestions/", { credentials: 'include' })
+                .then(response => response.json())
+                .then(data => {
+                    let suggestionsContainer = document.getElementById('quick-suggestions');
+                    suggestionsContainer.innerHTML = '';
+
+                    data.suggestions.forEach(suggestion => {
+                        let suggestionSpan = document.createElement("span");
+                        suggestionSpan.className = "new-suggestion";
+                        suggestionSpan.innerText = suggestion;
+
+                        suggestionSpan.addEventListener("click", function () {
+                            const input = document.getElementById("question");
+                            input.value = this.innerText;
+                            document.getElementById("ai-form").dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+                        });
+
+                        suggestionsContainer.appendChild(suggestionSpan);
+                    }); 
+                })
+                .catch(error => console.error("Error to obtain suggestions:", error));
+        }
+    </script>
+
+    <!-- JS do chat/stream, feedback, memos -->
+    <script>
+        document.getElementById('ai-form').addEventListener('submit', async function(event) {
+            event.preventDefault();
+
+            const url = "{% url 'lulu' %}";
+            const questionInput = document.getElementById('question');
+            const question = questionInput.value.trim();
+            const chatHistory = document.getElementById('chat-history');
+
+            if (question === "") return;
+
+            const userMessage = document.createElement("div");
+            userMessage.classList.add("message", "user-message");
+            userMessage.innerText = question;
+            chatHistory.appendChild(userMessage);
+            questionInput.value = "";
+
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+
+            const form_data = new FormData();
+            form_data.append("question", question);
+
+            try {
+                const response = await fetch(url, {
+                    method: "POST",
+                    body: form_data
+                });
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder("utf-8");
+
+                let botMessage = document.createElement("div");
+                botMessage.classList.add("message", "bot-message");
+
+                // Bot options (memo, like, dislike)
+                let optionsDiv = document.createElement("div");
+                optionsDiv.classList.add("bot-message-options");
+
+                // Memo
+                let saveButton = document.createElement("button");
+                saveButton.classList.add("save-memo-btn");
+                saveButton.title = "Save as Memo";
+                saveButton.innerHTML = '<i class="fa-regular fa-heart"></i>'; 
+                optionsDiv.appendChild(saveButton);
+
+                // Like
+                let likeButton = document.createElement("button");
+                likeButton.classList.add("save-memo-btn");
+                likeButton.title = "Positive Feedback";
+                likeButton.innerHTML = '<i class="fa-regular fa-thumbs-up"></i>'; 
+                optionsDiv.appendChild(likeButton);
+
+                // Dislike
+                let dislikeButton = document.createElement("button");
+                dislikeButton.classList.add("save-memo-btn");
+                dislikeButton.title = "Negative Feedback";
+                dislikeButton.innerHTML = '<i class="fa-regular fa-thumbs-down"></i>'; 
+                optionsDiv.appendChild(dislikeButton);
+
+                let messageContent = document.createElement("div");
+                messageContent.classList.add("bot-message-content");
+
+                // Memo
+                saveButton.addEventListener("click", () => {
+                    const contentToSave = messageContent.innerText.trim();
+                    if (saveButton.classList.contains("liked")) {
+                        removerMemo(saveButton.dataset.memoId, saveButton);
+                    } else {
+                        salvarMemo(contentToSave, saveButton);
+                    }
+                });
+
+                // Like
+                likeButton.addEventListener("click", () => {
+                    const userPrompt = question;
+                    const botMsg = messageContent.innerText.trim();
+                    sendFeedback(userPrompt, botMsg, "like");
+                    if (likeButton.classList.contains("selected")) {
+                        updateFeedbackVisual(null, likeButton, dislikeButton);
+                    } else {
+                        updateFeedbackVisual("like", likeButton, dislikeButton);
+                    }
+                });
+
+                // Dislike
+                dislikeButton.addEventListener("click", () => {
+                    const userPrompt = question;
+                    const botMsg = messageContent.innerText.trim();
+                    sendFeedback(userPrompt, botMsg, "dislike");
+                    if (dislikeButton.classList.contains("selected")) {
+                        updateFeedbackVisual(null, likeButton, dislikeButton);
+                    } else {
+                        updateFeedbackVisual("dislike", likeButton, dislikeButton);
+                    }
+                });
+
+                // Anexa partes
+                botMessage.appendChild(messageContent);
+                botMessage.appendChild(optionsDiv);
+                chatHistory.appendChild(botMessage);
+
+                // Streaming resposta
+                function processStream({ done, value }) {
+                    if (done) return;
+                    messageContent.innerHTML = marked.parse(messageContent.innerHTML + decoder.decode(value));
+                    reader.read().then(processStream);
+                }
+                reader.read().then(processStream);
+            } catch (error) {
+                console.error("Error fetching response:", error);
+                let errorMessage = document.createElement("div");
+                errorMessage.classList.add("message", "error-message");
+                errorMessage.innerText = "Error fetching response. Try again.";
+                chatHistory.appendChild(errorMessage);
+            }
+        });
+
+        function salvarMemo(texto, button) {
+            fetch("{% url 'save_memos' %}", {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": '{{ csrf_token }}'
+                },
+                body: new URLSearchParams({ message: texto })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === "ok") {
+                    button.classList.add("liked");
+                    button.dataset.memoId = data.memo_id;
+                }
+            })
+            .catch(err => console.error(err));
+        }
+
+        function removerMemo(memoId, button) {
+            fetch(`/app/delete_memo/${memoId}/`, {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": '{{ csrf_token }}'
+                }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === "ok") {
+                    button.classList.remove("liked");
+                    delete button.dataset.memoId;
+                }
+            })
+            .catch(err => console.error(err));
+        }
+
+        function sendFeedback(userPrompt, botMessage, feedbackType) {
+            fetch("/app/save_feedback/", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    user_prompt: userPrompt,
+                    bot_message: botMessage,
+                    feedback_type: feedbackType,
+                })
+            })
+            .then(res => res.json())
+            .catch(err => console.error("Erro ao enviar feedback:", err));
+        }
+
+        function updateFeedbackVisual(type, likeBtn, dislikeBtn) {
+            likeBtn.classList.remove("selected", "like");
+            dislikeBtn.classList.remove("selected", "dislike");
+            if (type === "like") {
+                likeBtn.classList.add("selected", "like");
+            } else if (type === "dislike") {
+                dislikeBtn.classList.add("selected", "dislike");
+            }
+        }
+    </script>
+
+    <!-- JS do speech-to-text -->
+    <script>
+    let mediaRecorder;
+    let audioChunks = [];
+    let isRecording = false;
+
+    document.addEventListener("DOMContentLoaded", function() {
+        const micButton = document.getElementById('mic-button');
+        const questionInput = document.getElementById('question');
+        const aiForm = document.getElementById('ai-form');
+        const loadingDiv = document.getElementById('stt-loading');
+
+        micButton.addEventListener('click', async function(e) {
+            e.preventDefault();
+            if (!isRecording) {
+                // Começa a gravar
+                audioChunks = [];
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+
+                mediaRecorder.start();
+                isRecording = true;
+                micButton.classList.add("recording");
+                micButton.innerHTML = '<i class="fa-solid fa-stop"></i>';
+
+                mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+
+                mediaRecorder.onstop = async () => {
+                    isRecording = false;
+                    micButton.classList.remove("recording");
+                    micButton.innerHTML = '<i class="fa-solid fa-microphone"></i>';
+
+                    loadingDiv.style.display = "block";
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    const formData = new FormData();
+                    formData.append("audio", audioBlob, "audio.webm");
+
+                    try {
+                        const response = await fetch("/app/speech-to-text/", {
+                            method: "POST",
+                            body: formData
+                        });
+                        const data = await response.json();
+                        if (data.text) {
+                            questionInput.value = data.text;
+                            questionInput.focus();
+                            aiForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+                        } else {
+                            alert("Não foi possível transcrever o áudio.");
+                        }
+                    } catch (err) {
+                        alert("Erro ao transcrever o áudio.");
+                    }
+                    loadingDiv.style.display = "none";
+                };
+            } else {
+                mediaRecorder.stop();
+            }
+        });
+    });
+    </script>
+</body>
+</html>

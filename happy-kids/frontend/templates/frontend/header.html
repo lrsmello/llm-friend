@@ -1,0 +1,30 @@
+{% load static %}
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="{% static 'frontend/css/header_styles.css' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+</head>
+<div class="header">
+    <div class="class-page-title">
+
+        {% if '/app/profile' in request.path %}<h1>My Profile</h1>
+        {% elif '/app/chat/' in request.path %}<h1 class="h1-aqua">Vamos Conversar?</h1>
+        {% elif '/app/' in request.path %}<h1 class="title">
+            <span >Oi, eu sou a </span>
+            <span class="gradient-candy">Didi!</span>
+        </h1>
+        {% endif %}
+    
+    </div>
+
+    <div class="user_details">
+        <h1>Hi, {{ user.first_name }}</h1>
+        <div class="user-icon">
+            <a href="{% url 'profile' %}">
+                <img src="{% static 'frontend/img/Hilow.png' %}">
+            </a>
+        </div>
+        
+    </div>
+</div>
