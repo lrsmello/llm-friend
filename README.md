@@ -13,6 +13,11 @@ Mais do que um projeto de tecnologia, a Didi é um projeto de amor, educação e
 O visual da Didi foi **desenhado pela própria Anna Lua** em papel.  
 Usando técnicas de **inteligência artificial generativa**, transformamos esse desenho em uma personagem digital cheia de vida, preservando a essência e a criatividade original.
 
+<p align="center">
+  <img src="design/didi/desenho/rascunho_inicial-2.jpg" alt="Desenho original da Anna Lua" width="300"/>
+  <img src="design/didi/desenho/initial-desing.png" alt="Personagem digital Didi" width="300"/>
+</p>
+
 Essa identidade visual é parte central do projeto e será **constantemente atualizada** conforme os desejos e novas ideias da Anna Lua, mantendo a Didi sempre próxima da sua criadora.
 
 ---
